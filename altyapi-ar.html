@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Altyapı AR — Saha Görüş</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0D10;
+  --panel:#12161B;
+  --panel-a:rgba(14,18,22,0.92);
+  --line:rgba(255,255,255,0.10);
+  --text:#EAEDEF;
+  --muted:#8B98A3;
+  --amber:#FFB020;
+  --amber-dim:rgba(255,176,32,0.16);
+  --cyan:#2FD9CE;
+  --cyan-dim:rgba(47,217,206,0.16);
+  --danger:#FF5A5F;
+  --good:#3DDC84;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:'Space Grotesk',system-ui,sans-serif;overflow:hidden;}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
+button{font-family:inherit;}
+
+#app{position:relative;width:100vw;height:100vh;height:100dvh;background:#000;}
+
+/* ---------- onboarding ---------- */
+#onboard{position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 30% 20%, #14191F 0%, #090B0D 70%);padding:24px;}
+.card{width:100%;max-width:440px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px 24px;}
+.card h1{font-size:22px;margin:0 0 6px;letter-spacing:-0.01em;}
+.card .sub{color:var(--muted);font-size:14px;line-height:1.5;margin:0 0 20px;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;}
+.filebtn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  background:#0E1216;border:1px dashed var(--line);border-radius:10px;padding:12px 14px;color:var(--text);cursor:pointer;}
+.filebtn:hover{border-color:var(--amber);}
+.filebtn span.name{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;}
+#geojsonInput{display:none;}
+.startbtn{width:100%;padding:14px;border:none;border-radius:10px;background:var(--amber);color:#1A1200;
+  font-weight:700;font-size:15px;cursor:pointer;margin-top:6px;}
+.startbtn:active{transform:scale(0.99);}
+.help{margin-top:16px;font-size:12px;color:var(--muted);line-height:1.6;border-top:1px solid var(--line);padding-top:14px;}
+.help b{color:var(--text);}
+.status-line{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);margin-top:10px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none;}
+.dot.ok{background:var(--good);}
+.dot.err{background:var(--danger);}
+
+/* ---------- main view ---------- */
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;}
+#overlay{position:absolute;inset:0;width:100%;height:100%;display:block;}
+#main{position:absolute;inset:0;display:none;}
+
+/* HUD top */
+#hud{position:absolute;top:0;left:0;right:0;z-index:20;padding:10px 12px calc(10px + env(safe-area-inset-top,0px));
+  padding-top:calc(10px + env(safe-area-inset-top,0px));
+  background:linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0));
+  display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none;}
+.hudchip{pointer-events:auto;background:var(--panel-a);border:1px solid var(--line);border-radius:10px;
+  padding:7px 10px;font-size:12px;display:flex;align-items:center;gap:7px;}
+.hudchip .val{color:var(--text);}
+#gearBtn{pointer-events:auto;width:34px;height:34px;border-radius:10px;background:var(--panel-a);
+  border:1px solid var(--line);color:var(--text);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+
+/* compass ribbon */
+#ribbonWrap{position:absolute;top:56px;left:0;right:0;height:26px;z-index:15;pointer-events:none;
+  overflow:hidden;}
+#ribbonWrap::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--amber);
+  transform:translateX(-1px);z-index:2;}
+#ribbon{position:absolute;top:0;left:0;height:100%;white-space:nowrap;font-size:11px;color:var(--muted);
+  font-family:'JetBrains Mono',monospace;}
+#ribbon span{display:inline-block;width:60px;text-align:center;}
+#ribbon span.card{color:var(--text);font-weight:600;}
+
+/* bottom sheet */
+#sheet{position:absolute;left:0;right:0;bottom:0;z-index:20;background:var(--panel-a);
+  border-top:1px solid var(--line);border-radius:16px 16px 0 0;
+  padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px));max-height:56vh;display:flex;flex-direction:column;
+  transition:transform .25s ease;}
+#sheet.collapsed{transform:translateY(calc(100% - 46px));}
+#sheetHandle{align-self:center;width:36px;height:4px;border-radius:2px;background:var(--line);margin-bottom:8px;cursor:pointer;}
+#sheetTop{display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+#sheetTitle{font-size:13px;color:var(--muted);}
+#sheetCount{font-size:13px;color:var(--text);font-weight:600;}
+#lineList{overflow-y:auto;margin-top:10px;display:flex;flex-direction:column;gap:8px;}
+.lineitem{display:flex;align-items:center;gap:10px;padding:9px 10px;background:#0E1216;border-radius:10px;border:1px solid var(--line);}
+.swatch{width:9px;height:9px;border-radius:50%;flex:none;}
+.li-main{flex:1;min-width:0;}
+.li-name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.li-type{font-size:11px;color:var(--muted);}
+.li-dist{font-size:13px;color:var(--text);flex:none;}
+.empty{color:var(--muted);font-size:13px;padding:14px 4px;text-align:center;}
+
+/* settings panel */
+#settings{position:absolute;inset:0;z-index:40;background:rgba(6,8,10,0.72);display:none;align-items:flex-end;}
+#settings .card{max-width:none;border-radius:16px 16px 0 0;max-height:80vh;overflow-y:auto;}
+.row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.row .rowval{font-size:12px;color:var(--muted);}
+input[type=range]{width:100%;accent-color:var(--amber);}
+.closebtn{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;background:#0E1216;
+  border:1px solid var(--line);color:var(--text);cursor:pointer;}
+.small{font-size:12px;color:var(--muted);line-height:1.5;}
+.reupload{margin-top:14px;}
+
+/* center reticle */
+#reticle{position:absolute;top:50%;left:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border:1px solid rgba(255,255,255,0.35);
+  border-radius:50%;z-index:10;pointer-events:none;}
+
+.toast{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);background:var(--panel-a);
+  border:1px solid var(--danger);color:var(--text);padding:10px 14px;border-radius:10px;font-size:12.5px;
+  max-width:86vw;z-index:60;display:none;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ONBOARDING -->
+  <div id="onboard">
+    <div class="card">
+      <h1>Altyapı AR</h1>
+      <p class="sub">Kamera, konum ve pusula ile önünüzdeki altyapı hatlarını görün. Önce QGIS'ten dışa aktardığınız GeoJSON dosyasını yükleyin, sonra saha görüşünü başlatın.</p>
+
+      <div class="field">
+        <label>Altyapı verisi (GeoJSON)</label>
+        <div class="filebtn" id="filebtnWrap">
+          <span id="fileLabel">Dosya seç…</span>
+          <span class="name" id="fileName"></span>
+        </div>
+        <input type="file" id="geojsonInput" accept=".geojson,.json,application/geo+json,application/json">
+      </div>
+
+      <button class="startbtn" id="startBtn">Saha Görüşünü Başlat</button>
+
+      <div class="status-line"><span class="dot" id="dotFile"></span><span id="statFile">Veri yüklenmedi</span></div>
+
+      <div class="help">
+        <b>QGIS'ten hazırlık:</b> Katmana sağ tık → Dışa Aktar → Farklı Kaydet → Format: GeoJSON, CRS: <b>EPSG:4326 – WGS84</b> seçin. Hat tipini otomatik ayırt etmek için özniteliklere “tip” adlı bir alan ekleyip değerini <b>Tranşe</b> veya <b>Havai</b> yazabilirsiniz (yazmazsanız varsayılan Tranşe kabul edilir).
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN AR VIEW -->
+  <div id="main">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="overlay"></canvas>
+    <div id="reticle"></div>
+
+    <div id="hud">
+      <div style="display:flex;gap:8px;">
+        <div class="hudchip"><span class="dot" id="dotGps"></span><span class="val mono" id="hudAcc">— m</span></div>
+        <div class="hudchip"><span class="val mono" id="hudHeading">—°</span><span id="hudCard">–</span></div>
+      </div>
+      <div id="gearBtn">⚙</div>
+    </div>
+
+    <div id="ribbonWrap"><div id="ribbon" class="mono"></div></div>
+
+    <div id="sheet" class="collapsed">
+      <div id="sheetHandle"></div>
+      <div id="sheetTop">
+        <span id="sheetTitle">Yakındaki hatlar</span>
+        <span id="sheetCount" class="mono">0</span>
+      </div>
+      <div id="lineList"><div class="empty">Yakında hat bulunamadı</div></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="settings">
+    <div class="card" style="position:relative;">
+      <button class="closebtn" id="closeSettings">✕</button>
+      <h1 style="font-size:17px;">Ayarlar</h1>
+
+      <div class="field">
+        <div class="row"><label style="margin:0;">Arama yarıçapı</label><span class="rowval mono" id="radiusVal">80 m</span></div>
+        <input type="range" id="radiusSlider" min="10" max="300" step="5" value="80">
+      </div>
+
+      <div class="field">
+        <div class="row"><label style="margin:0;">Kamera görüş açısı (FOV)</label><span class="rowval mono" id="fovVal">60°</span></div>
+        <input type="range" id="fovSlider" min="40" max="90" step="1" value="60">
+      </div>
+
+      <div class="field">
+        <div class="row"><label style="margin:0;">Pusula kalibrasyon ofseti</label><span class="rowval mono" id="calibVal">0°</span></div>
+        <input type="range" id="calibSlider" min="-180" max="180" step="1" value="0">
+        <p class="small">Telefonun pusulası genelde birkaç derece kayabilir; bilinen bir hattın karşısında durup çizgi tam üstüne gelene kadar bu ayarı kaydırabilirsiniz.</p>
+      </div>
+
+      <div class="field">
+        <div class="row"><label style="margin:0;">Manuel yön (pusula çalışmıyorsa)</label>
+          <label style="margin:0;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);">
+            <input type="checkbox" id="manualToggle"> etkinleştir
+          </label>
+        </div>
+        <input type="range" id="manualSlider" min="0" max="359" step="1" value="0" disabled>
+      </div>
+
+      <div class="reupload">
+        <div class="filebtn" id="reuploadBtn"><span>Farklı GeoJSON yükle</span><span class="name" id="reuploadName"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+
+  const state = {
+    pos: null,          // {lat, lon, accuracy}
+    heading: 0,          // 0-360, 0 = kuzey
+    calib: 0,
+    fov: 60,
+    radius: 80,
+    manual: false,
+    manualHeading: 0,
+    features: [],        // {name, type, coords:[[lon,lat],...]}
+    nearby: [],           // {feature, dist, bearing}
+    orientationActive: false,
+    geoActive: false,
+  };
+
+  const COLORS = { Havai: '#2FD9CE', Trans: '#FFB020' };
+  const CARD = ['K','KKD','KD','DKD','D','DGD','GD','GGD','G','GGB','GB','BGB','B','BKB','KB','KKB'];
+
+  function toast(msg, ms){
+    const t = $('toast'); t.textContent = msg; t.style.display='block';
+    clearTimeout(toast._h);
+    toast._h = setTimeout(()=>{ t.style.display='none'; }, ms||3200);
+  }
+
+  /* ---------------- GeoJSON handling ---------------- */
+  function typeOf(props){
+    const s = JSON.stringify(props||{}).toLowerCase();
+    if (s.includes('havai') || s.includes('aerial')) return 'Havai';
+    return 'Trans';
+  }
+  function nameOf(props, fallback){
+    if(!props) return fallback;
+    return props.name || props.ad || props.isim || props.aciklama || props.label || fallback;
+  }
+
+  function parseGeoJSON(text){
+    let gj;
+    try { gj = JSON.parse(text); } catch(e){ toast('GeoJSON okunamadı: dosya bozuk olabilir.'); return []; }
+    const feats = gj.type === 'FeatureCollection' ? gj.features : (gj.type === 'Feature' ? [gj] : []);
+    const out = [];
+    let idx = 0;
+    for (const f of feats){
+      if(!f.geometry) continue;
+      const t = typeOf(f.properties);
+      const nm = nameOf(f.properties, 'Hat ' + (++idx));
+      const g = f.geometry;
+      if (g.type === 'LineString'){
+        out.push({ name: nm, type: t, coords: g.coordinates });
+      } else if (g.type === 'MultiLineString'){
+        g.coordinates.forEach((line, i) => out.push({ name: nm + (g.coordinates.length>1 ? ' #'+(i+1) : ''), type: t, coords: line }));
+      } else if (g.type === 'Point'){
+        out.push({ name: nm, type: t, coords: [g.coordinates] });
+      } else if (g.type === 'MultiPoint'){
+        g.coordinates.forEach((pt,i)=> out.push({ name: nm+' #'+(i+1), type: t, coords: [pt] }));
+      }
+    }
+    return out;
+  }
+
+  function loadFile(file, cb){
+    const reader = new FileReader();
+    reader.onload = e => {
+      const feats = parseGeoJSON(e.target.result);
+      cb(feats, file.name);
+    };
+    reader.onerror = () => toast('Dosya okunamadı.');
+    reader.readAsText(file);
+  }
+
+  $('filebtnWrap').addEventListener('click', ()=> $('geojsonInput').click());
+  $('geojsonInput').addEventListener('change', e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    loadFile(f, (feats, name) => {
+      state.features = feats;
+      $('fileName').textContent = name;
+      $('dotFile').classList.add(feats.length ? 'ok' : 'err');
+      $('statFile').textContent = feats.length ? (feats.length + ' hat/nokta yüklendi') : 'Uygun geometri bulunamadı';
+    });
+  });
+
+  $('reuploadBtn').addEventListener('click', () => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.geojson,.json,application/geo+json,application/json';
+    inp.onchange = e => {
+      const f = e.target.files[0];
+      if(!f) return;
+      loadFile(f, (feats, name) => {
+        state.features = feats;
+        $('reuploadName').textContent = name;
+        toast(feats.length + ' hat/nokta yüklendi.');
+        computeNearby();
+      });
+    };
+    inp.click();
+  });
+
+  /* ---------------- geo math ---------------- */
+  const toRad = d => d * Math.PI / 180;
+  const toDeg = r => r * 180 / Math.PI;
+
+  function localXY(lat, lon, refLat, refLon){
+    const R = 6371000;
+    const dLat = toRad(lat - refLat);
+    const dLon = toRad(lon - refLon);
+    return { x: dLon * Math.cos(toRad(refLat)) * R, y: dLat * R }; // x=doğu, y=kuzey (m)
+  }
+
+  function nearestOnSegment(ax, ay, bx, by){
+    const abx = bx - ax, aby = by - ay;
+    const len2 = abx*abx + aby*aby;
+    let t = len2 > 0 ? (-ax*abx - ay*aby) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return { x: ax + abx * t, y: ay + aby * t };
+  }
+
+  function computeNearby(){
+    if(!state.pos || !state.features.length){ state.nearby = []; renderList(); return; }
+    const refLat = state.pos.lat, refLon = state.pos.lon;
+    const results = [];
+    for(const f of state.features){
+      const pts = f.coords.map(([lon,lat]) => localXY(lat, lon, refLat, refLon));
+      let best = null;
+      if(pts.length === 1){
+        best = { x: pts[0].x, y: pts[0].y, d: Math.hypot(pts[0].x, pts[0].y) };
+      } else {
+        for(let i=0;i<pts.length-1;i++){
+          const np = nearestOnSegment(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y);
+          const d = Math.hypot(np.x, np.y);
+          if(!best || d < best.d) best = { x: np.x, y: np.y, d };
+        }
+      }
+      if(best && best.d <= state.radius){
+        const bearing = (toDeg(Math.atan2(best.x, best.y)) + 360) % 360;
+        results.push({ feature: f, dist: best.d, bearing });
+      }
+    }
+    results.sort((a,b) => a.dist - b.dist);
+    state.nearby = results;
+    renderList();
+  }
+
+  function renderList(){
+    $('sheetCount').textContent = state.nearby.length;
+    const list = $('lineList');
+    if(!state.nearby.length){ list.innerHTML = '<div class="empty">Yakında hat bulunamadı</div>'; return; }
+    list.innerHTML = state.nearby.map(it => `
+      <div class="lineitem">
+        <span class="swatch" style="background:${COLORS[it.feature.type]}"></span>
+        <div class="li-main">
+          <div class="li-name">${escapeHtml(it.feature.name)}</div>
+          <div class="li-type">${it.feature.type === 'Havai' ? 'Havai hat' : 'Tranşe / yer altı'}</div>
+        </div>
+        <div class="li-dist mono">${it.dist.toFixed(0)} m</div>
+      </div>`).join('');
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  /* ---------------- geolocation ---------------- */
+  function startGeolocation(){
+    if(!navigator.geolocation){ toast('Bu cihazda konum servisi bulunamadı.'); return; }
+    navigator.geolocation.watchPosition(p => {
+      state.pos = { lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy };
+      state.geoActive = true;
+      $('dotGps').classList.add(p.coords.accuracy <= 15 ? 'ok' : 'err');
+      $('hudAcc').textContent = '±' + p.coords.accuracy.toFixed(0) + ' m';
+      computeNearby();
+    }, err => {
+      toast('Konum alınamadı: ' + err.message);
+    }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 });
+  }
+
+  /* ---------------- orientation / compass ---------------- */
+  function handleOrientation(e){
+    let heading;
+    if (typeof e.webkitCompassHeading === 'number'){
+      heading = e.webkitCompassHeading;
+    } else if (e.alpha !== null && e.alpha !== undefined){
+      heading = 360 - e.alpha;
+    } else return;
+    state.heading = (heading + 360) % 360;
+    state.orientationActive = true;
+    updateHeadingHud();
+  }
+
+  function requestOrientation(){
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      DeviceOrientationEvent.requestPermission().then(res => {
+        if(res === 'granted'){
+          window.addEventListener('deviceorientation', handleOrientation, true);
+        } else {
+          toast('Pusula izni verilmedi — manuel yön ayarını Ayarlar\'dan açabilirsiniz.');
+        }
+      }).catch(()=>{ toast('Pusula başlatılamadı.'); });
+    } else {
+      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
+  }
+
+  function updateHeadingHud(){
+    const h = state.manual ? state.manualHeading : ((state.heading + state.calib + 360) % 360);
+    $('hudHeading').textContent = Math.round(h) + '°';
+    const idx = Math.round(h / 22.5) % 16;
+    $('hudCard').textContent = CARD[idx];
+  }
+
+  /* ---------------- camera ---------------- */
+  function startCamera(){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      toast('Kamera desteklenmiyor, sadece pusula/konum modu kullanılacak.');
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+      .then(stream => { $('video').srcObject = stream; })
+      .catch(() => { toast('Kamera izni verilmedi — arka plan olmadan devam ediliyor.'); });
+  }
+
+  /* ---------------- canvas draw loop ---------------- */
+  const canvas = $('overlay');
+  const ctx = canvas.getContext('2d');
+  function resizeCanvas(){
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function currentHeading(){
+    return state.manual ? state.manualHeading : ((state.heading + state.calib + 360) % 360);
+  }
+
+  function drawRibbon(){
+    const h = currentHeading();
+    const el = $('ribbon');
+    const w = window.innerWidth;
+    const pxPerDeg = 4;
+    el.style.transform = `translateX(${w/2 - h*pxPerDeg}px)`;
+    if(!el._built){
+      let html = '';
+      for(let d=0; d<720; d+=15){
+        const dd = d % 360;
+        const label = dd % 90 === 0 ? CARD[dd/22.5] : (dd % 45 === 0 ? '' : '·');
+        html += `<span style="width:${15*pxPerDeg}px" class="${dd%90===0?'card':''}">${label}</span>`;
+      }
+      el.innerHTML = html;
+      el._built = true;
+    }
+  }
+
+  function draw(){
+    requestAnimationFrame(draw);
+    if(canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) resizeCanvas();
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawRibbon();
+    const heading = currentHeading();
+    const w = canvas.width, h = canvas.height;
+    const horizonY = h * 0.52;
+
+    for(const it of state.nearby){
+      let diff = ((it.bearing - heading + 540) % 360) - 180;
+      if (Math.abs(diff) > state.fov/2) continue;
+      const sx = w/2 + (diff/(state.fov/2)) * (w/2);
+      const scale = Math.max(0.55, Math.min(1.7, 30/Math.max(it.dist,3)));
+      const color = COLORS[it.feature.type];
+
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3 * scale;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(sx, horizonY - 46*scale);
+      ctx.lineTo(sx, horizonY + 46*scale);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      const label = it.feature.name + '  ·  ' + it.dist.toFixed(0) + ' m';
+      ctx.font = `${Math.round(12*scale)+2}px 'JetBrains Mono', monospace`;
+      const tw = ctx.measureText(label).width;
+      const ly = horizonY - 46*scale - 14;
+      ctx.fillStyle = 'rgba(10,13,16,0.82)';
+      ctx.fillRect(sx - tw/2 - 7, ly - 16, tw + 14, 22);
+      ctx.fillStyle = color;
+      ctx.fillText(label, sx - tw/2, ly);
+      ctx.restore();
+    }
+  }
+
+  /* ---------------- UI wiring ---------------- */
+  $('startBtn').addEventListener('click', () => {
+    $('onboard').style.display = 'none';
+    $('main').style.display = 'block';
+    resizeCanvas();
+    startCamera();
+    startGeolocation();
+    requestOrientation();
+    updateHeadingHud();
+    draw();
+  });
+
+  $('gearBtn').addEventListener('click', () => { $('settings').style.display = 'flex'; });
+  $('closeSettings').addEventListener('click', () => { $('settings').style.display = 'none'; });
+
+  $('sheetTop').addEventListener('click', () => $('sheet').classList.toggle('collapsed'));
+  $('sheetHandle').addEventListener('click', () => $('sheet').classList.toggle('collapsed'));
+
+  $('radiusSlider').addEventListener('input', e => {
+    state.radius = +e.target.value;
+    $('radiusVal').textContent = state.radius + ' m';
+    computeNearby();
+  });
+  $('fovSlider').addEventListener('input', e => {
+    state.fov = +e.target.value;
+    $('fovVal').textContent = state.fov + '°';
+  });
+  $('calibSlider').addEventListener('input', e => {
+    state.calib = +e.target.value;
+    $('calibVal').textContent = state.calib + '°';
+    updateHeadingHud();
+  });
+  $('manualToggle').addEventListener('change', e => {
+    state.manual = e.target.checked;
+    $('manualSlider').disabled = !state.manual;
+    updateHeadingHud();
+  });
+  $('manualSlider').addEventListener('input', e => {
+    state.manualHeading = +e.target.value;
+    updateHeadingHud();
+  });
+
+})();
+</script>
+</body>
+</html>
