@@ -140,7 +140,7 @@ input[type=range]{width:100%;accent-color:var(--amber);}
       <div class="status-line"><span class="dot" id="dotFile"></span><span id="statFile">Veri yüklenmedi</span></div>
 
       <div class="help">
-        <b>QGIS'ten hazırlık:</b> Katmana sağ tık → Dışa Aktar → Farklı Kaydet → Format: GeoJSON, CRS: <b>EPSG:4326 – WGS84</b> seçin. Hat tipini otomatik ayırt etmek için özniteliklere “tip” adlı bir alan ekleyip değerini <b>Tranşe</b> veya <b>Havai</b> yazabilirsiniz (yazmazsanız varsayılan Tranşe kabul edilir).
+        <b>QGIS'ten hazırlık:</b> Katmana sağ tık → Dışa Aktar → Farklı Kaydet → Format: GeoJSON, CRS: <b>EPSG:4326 – WGS84</b> seçin. Hat tipini otomatik ayırt etmek için özniteliklere “tip” adlı bir alan ekleyip şu değerlerden birini yazabilirsiniz: <b>Tranşe</b> (mavi), <b>Fide</b> (pembe), <b>Havai</b> (yeşil), <b>Karayolu</b> (mor) — yazmazsanız varsayılan Tranşe kabul edilir. Birden fazla katmanı aynı GeoJSON dosyasında birleştirip yükleyebilirsiniz, hepsi aynı anda ve kendi renginde görünür.
       </div>
     </div>
   </div>
@@ -229,7 +229,8 @@ input[type=range]{width:100%;accent-color:var(--amber);}
     geoActive: false,
   };
 
-  const COLORS = { Havai: '#2FD9CE', Trans: '#FFB020' };
+  const COLORS = { Trans: '#3B9EFF', Fide: '#FF5FA2', Havai: '#34D399', Karayolu: '#A78BFA' };
+  const TYPE_LABELS = { Trans: 'Tranşe / yer altı', Fide: 'Fide', Havai: 'Havai hat', Karayolu: 'Karayolu' };
   const CARD = ['K','KKD','KD','DKD','D','DGD','GD','GGD','G','GGB','GB','BGB','B','BKB','KB','KKB'];
 
   function toast(msg, ms){
@@ -242,6 +243,8 @@ input[type=range]{width:100%;accent-color:var(--amber);}
   function typeOf(props){
     const s = JSON.stringify(props||{}).toLowerCase();
     if (s.includes('havai') || s.includes('aerial')) return 'Havai';
+    if (s.includes('fide')) return 'Fide';
+    if (s.includes('karayolu') || s.includes('yol')) return 'Karayolu';
     return 'Trans';
   }
   function nameOf(props, fallback){
@@ -365,7 +368,7 @@ input[type=range]{width:100%;accent-color:var(--amber);}
         <span class="swatch" style="background:${COLORS[it.feature.type]}"></span>
         <div class="li-main">
           <div class="li-name">${escapeHtml(it.feature.name)}</div>
-          <div class="li-type">${it.feature.type === 'Havai' ? 'Havai hat' : 'Tranşe / yer altı'}</div>
+          <div class="li-type">${TYPE_LABELS[it.feature.type] || it.feature.type}</div>
         </div>
         <div class="li-dist mono">${it.dist.toFixed(0)} m</div>
       </div>`).join('');
